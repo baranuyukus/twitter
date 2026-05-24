@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tweeter Studio</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">T</div>
+          <div>
+            <h1>Tweeter Studio</h1>
+            <p>Desktop control panel</p>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="compose">Compose</button>
+          <button class="nav-item" data-view="actions">Actions</button>
+          <button class="nav-item" data-view="check">Check</button>
+          <button class="nav-item" data-view="accounts">Accounts</button>
+          <button class="nav-item" data-view="settings">Settings</button>
+          <button class="nav-item" data-view="logs">Logs</button>
+        </nav>
+        <div class="sidebar-status">
+          <span class="dot" id="bridgeDot"></span>
+          <span id="bridgeStatus">Starting</span>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h2 id="viewTitle">Compose</h2>
+            <p id="viewSubtitle">AI preview, review, then publish selected rows.</p>
+          </div>
+          <button id="refreshBtn" class="icon-button" title="Refresh">Refresh</button>
+        </header>
+
+        <section id="composeView" class="view active">
+          <div class="layout">
+            <section class="panel composer">
+              <div class="panel-head">
+                <h3>Campaign Draft</h3>
+                <span id="accountCountBadge" class="badge">0 accounts</span>
+              </div>
+
+              <div class="field-row">
+                <label class="field">
+                  <span>Mode</span>
+                  <select id="modeSelect">
+                    <option value="rewrite">Rewrite one tweet per account</option>
+                    <option value="instruction">Write from instruction</option>
+                  </select>
+                </label>
+                <label class="field small">
+                  <span>Workers</span>
+                  <input id="workersInput" type="number" min="1" value="6" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span id="promptLabel">Base tweet</span>
+                <textarea id="promptInput" rows="8" placeholder="Write the base tweet or instruction here"></textarea>
+              </label>
+
+              <div class="field-row">
+                <label class="field">
+                  <span>Reply to tweet ID</span>
+                  <input id="replyToInput" type="text" placeholder="Optional" />
+                </label>
+                <label class="field">
+                  <span>AI model</span>
+                  <input id="aiModelInput" type="text" />
+                </label>
+              </div>
+
+              <div class="button-row">
+                <button id="selectAllBtn" class="secondary">Select all</button>
+                <button id="clearSelectionBtn" class="secondary">Clear</button>
+                <button id="selectGroupBtn" class="secondary">Select group</button>
+                <button id="chooseImagesBtn" class="secondary">Images</button>
+                <button id="previewBtn" class="primary">Generate preview</button>
+              </div>
+              <p id="imageSummary" class="muted"></p>
+            </section>
+
+            <section class="panel account-panel">
+              <div class="panel-head">
+                <h3>Accounts</h3>
+                <button id="checkBtn" class="secondary compact">Check</button>
+              </div>
+              <div id="accountList" class="account-list"></div>
+            </section>
+          </div>
+
+          <section class="panel variants-panel">
+            <div class="panel-head">
+              <div>
+                <h3>Review Queue</h3>
+                <p class="muted">Rows with AI errors are never posted.</p>
+              </div>
+              <button id="postBtn" class="danger" disabled>Publish selected</button>
+            </div>
+            <div id="variantList" class="variant-list empty">Generate a preview to review account-specific text.</div>
+            <div class="publish-console">
+              <div class="panel-head tight-head">
+                <h3>Publish Output</h3>
+                <span id="publishSummary" class="badge">Idle</span>
+              </div>
+              <pre id="publishOutput" class="console-output compact-console">No publish run yet.</pre>
+            </div>
+          </section>
+        </section>
+
+        <section id="actionsView" class="view">
+          <div class="layout">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Bulk Actions</h3>
+                <span class="badge">CLI feature surface</span>
+              </div>
+              <div class="field-row">
+                <label class="field">
+                  <span>Action</span>
+                  <select id="actionSelect">
+                    <option value="like">Like tweet</option>
+                    <option value="retweet">Retweet</option>
+                    <option value="follow">Follow user</option>
+                    <option value="reply">Reply</option>
+                    <option value="reply-ai">AI reply from instruction</option>
+                    <option value="bookmark">Bookmark</option>
+                    <option value="view">View</option>
+                    <option value="protect">Protect accounts</option>
+                    <option value="unprotect">Unprotect accounts</option>
+                    <option value="follow-boost">Follow boost</option>
+                    <option value="boost">Boost mode</option>
+                    <option value="fix-usernames">Fix usernames</option>
+                    <option value="purge">Purge dead accounts</option>
+                  </select>
+                </label>
+                <label class="field small">
+                  <span>Workers</span>
+                  <input id="actionWorkersInput" type="number" min="1" value="10" />
+                </label>
+              </div>
+
+              <div class="field-row">
+                <label class="field">
+                  <span>Tweet ID</span>
+                  <input id="actionTweetIdInput" type="text" placeholder="For like, retweet, reply, bookmark, view" />
+                </label>
+                <label class="field">
+                  <span>Username</span>
+                  <input id="actionUsernameInput" type="text" placeholder="@target for follow" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Text / instruction</span>
+                <textarea id="actionTextInput" rows="5" placeholder="Reply text, AI instruction, or boost tweet text"></textarea>
+              </label>
+
+              <div class="field-row">
+                <label class="field">
+                  <span>Boost reply text</span>
+                  <input id="actionReplyTextInput" type="text" placeholder="Optional for boost" />
+                </label>
+                <label class="field small">
+                  <span>Repeat</span>
+                  <input id="actionRepeatInput" type="number" min="1" value="1" />
+                </label>
+              </div>
+
+              <div class="options-row">
+                <label><input id="actionAiRewriteInput" type="checkbox" /> AI rewrite text</label>
+                <label><input id="actionDryRunInput" type="checkbox" checked /> Dry run</label>
+                <label><input id="actionDeepInput" type="checkbox" /> Deep check</label>
+                <label><input id="actionSkipFollowInput" type="checkbox" checked /> Skip follow in boost</label>
+              </div>
+
+              <div class="button-row">
+                <button id="runActionBtn" class="danger">Run action</button>
+              </div>
+            </section>
+
+            <section class="panel account-panel">
+              <div class="panel-head">
+                <h3>Target Accounts</h3>
+                <span id="actionAccountCount" class="badge">0 selected</span>
+              </div>
+              <div class="field-row group-row">
+                <label class="field">
+                  <span>Group</span>
+                  <select id="actionGroupSelect"></select>
+                </label>
+                <button id="actionSelectGroupBtn" class="secondary compact">Select</button>
+              </div>
+              <div id="actionAccountList" class="account-list"></div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h3>Action Console</h3>
+              <button id="clearActionOutputBtn" class="secondary compact">Clear</button>
+            </div>
+            <pre id="actionOutput" class="console-output">No action run yet.</pre>
+          </section>
+        </section>
+
+        <section id="checkView" class="view">
+          <div class="layout">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Account Check</h3>
+                <span id="checkSummary" class="badge">Idle</span>
+              </div>
+              <div class="field-row">
+                <label class="field small">
+                  <span>Workers</span>
+                  <input id="checkWorkersInput" type="number" min="1" value="10" />
+                </label>
+                <label class="field check-toggle">
+                  <span>Mode</span>
+                  <label><input id="checkDeepInput" type="checkbox" /> Deep write test</label>
+                </label>
+              </div>
+              <div class="button-row">
+                <button id="checkSelectAllBtn" class="secondary">Select all</button>
+                <button id="checkClearBtn" class="secondary">Clear</button>
+                <button id="checkSelectFailedBtn" class="secondary">Select failed</button>
+                <button id="deleteFailedBtn" class="danger">Delete failed</button>
+                <button id="runCheckPageBtn" class="primary">Run check</button>
+              </div>
+              <div id="checkAccountList" class="check-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Check Output</h3>
+                <span class="badge">Live status</span>
+              </div>
+              <pre id="checkOutput" class="console-output">No check run yet.</pre>
+            </section>
+          </div>
+        </section>
+
+        <section id="accountsView" class="view">
+          <div class="accounts-layout">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>Add Account</h3>
+                <span class="badge">accounts.txt</span>
+              </div>
+              <div class="account-form-grid">
+                <label class="field">
+                  <span>Username</span>
+                  <input id="newUsernameInput" type="text" placeholder="@username" />
+                </label>
+                <label class="field">
+                  <span>Password</span>
+                  <input id="newPasswordInput" type="text" placeholder="Optional" />
+                </label>
+              </div>
+              <div class="field-row">
+                <label class="field">
+                  <span>Phone / email</span>
+                  <input id="newPhoneInput" type="text" placeholder="phone or email" />
+                </label>
+                <label class="field">
+                  <span>ct0</span>
+                  <input id="newCt0Input" type="text" placeholder="ct0 cookie" />
+                </label>
+              </div>
+              <label class="field">
+                <span>auth_token</span>
+                <input id="newAuthTokenInput" type="text" placeholder="auth_token cookie" />
+              </label>
+              <button id="addAccountBtn" class="primary">Add account</button>
+            </section>
+
+            <section class="panel bulk-import-panel">
+              <div class="panel-head">
+                <div>
+                  <h3>Bulk Account Import</h3>
+                  <p class="muted">Paste many account lines, then import them into accounts.txt.</p>
+                </div>
+                <span class="badge">5 or 7 fields</span>
+              </div>
+              <label class="field import-box">
+                <span>Accepted formats</span>
+                <textarea id="bulkAccountsInput" rows="8" placeholder="username:password:phone:auth_token:ct0&#10;or batch: username:password:email:email_password:2fa:ct0:auth_token"></textarea>
+              </label>
+              <div class="button-row">
+                <button id="bulkAddAccountsBtn" class="primary">Import lines</button>
+                <button id="clearBulkInputBtn" class="secondary">Clear</button>
+              </div>
+              <div id="bulkImportResult" class="import-result">No import run yet.</div>
+            </section>
+
+            <section class="panel inventory-panel">
+              <div class="panel-head">
+                <h3>Account Inventory</h3>
+                <button id="accountsCheckBtn" class="secondary">Open check</button>
+              </div>
+              <div class="field-row group-row">
+                <label class="field">
+                  <span>Group</span>
+                  <select id="groupSelect"></select>
+                </label>
+                <label class="field">
+                  <span>New group</span>
+                  <input id="newGroupInput" type="text" placeholder="clients-a, warm, test..." />
+                </label>
+              </div>
+              <div class="button-row account-tools">
+                <button id="createGroupBtn" class="secondary">Create group</button>
+                <button id="assignGroupBtn" class="secondary">Assign selected</button>
+                <button id="deleteSelectedAccountsBtn" class="danger">Delete selected</button>
+              </div>
+              <div id="accountTable" class="table"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="settingsView" class="view">
+          <section class="panel settings-grid">
+            <div>
+              <h3>AI Provider</h3>
+              <label class="field">
+                <span>Provider</span>
+                <select id="aiProviderSelect">
+                  <option value="oauth">ChatGPT OAuth proxy (npx openai-oauth)</option>
+                  <option value="api-key">OpenAI API key</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Base URL</span>
+                <input id="settingsAiBaseUrlInput" type="text" placeholder="http://127.0.0.1:10531/v1" />
+              </label>
+              <div class="field-row">
+                <label class="field">
+                  <span>Model</span>
+                  <input id="settingsAiModelInput" type="text" placeholder="gpt-5.4-mini" />
+                </label>
+                <label class="field small">
+                  <span>Timeout</span>
+                  <input id="settingsAiTimeoutInput" type="number" min="10" value="60" />
+                </label>
+              </div>
+              <label class="field">
+                <span>API key</span>
+                <input id="settingsAiApiKeyInput" type="password" placeholder="Only for API key mode" />
+              </label>
+              <div class="button-row">
+                <button id="saveSettingsBtn" class="primary">Save AI settings</button>
+                <button id="clearApiKeyBtn" class="secondary">Clear API key</button>
+              </div>
+              <div class="oauth-tools">
+                <div class="button-row">
+                  <button id="startOauthBtn" class="secondary">Start OAuth proxy</button>
+                  <button id="stopOauthBtn" class="secondary">Stop</button>
+                </div>
+                <pre id="oauthOutput" class="console-output compact-console">OAuth proxy not started.</pre>
+              </div>
+            </div>
+            <div>
+              <h3>Runtime</h3>
+              <dl class="details">
+                <dt>AI base URL</dt>
+                <dd id="settingsAiUrl"></dd>
+                <dt>AI provider</dt>
+                <dd id="settingsAiProvider"></dd>
+                <dt>API key</dt>
+                <dd id="settingsApiKey"></dd>
+                <dt>Twitter CLI</dt>
+                <dd id="settingsCli"></dd>
+                <dt>Proxy pool</dt>
+                <dd id="settingsProxy"></dd>
+              </dl>
+            </div>
+            <div>
+              <h3>Proxy List</h3>
+              <label class="field">
+                <span>One proxy per line</span>
+                <textarea id="proxyInput" rows="8" placeholder="http://user:pass@host:port"></textarea>
+              </label>
+              <button id="saveProxyBtn" class="primary">Save proxies</button>
+            </div>
+          </section>
+          <section class="panel">
+            <h3>Packaging Notes</h3>
+            <p class="muted wide">
+              Desktop UI uses a JSON bridge over the Python core. This keeps the product surface stable for licensing, packaging and future update checks.
+            </p>
+          </section>
+        </section>
+
+        <section id="logsView" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h3>Recent Activity</h3>
+              <button id="reloadLogsBtn" class="secondary">Reload</button>
+            </div>
+            <div id="logList" class="log-list"></div>
+          </section>
+        </section>
+
+        <div id="toast" class="toast"></div>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

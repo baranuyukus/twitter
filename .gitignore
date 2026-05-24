@@ -1,0 +1,23 @@
+venv/
+env/
+node_modules/
+__pycache__/
+*.pyc
+*.spec
+tweet_log.json
+accounts*.txt
+batch-*.txt
+proxy.txt
+app_config.json
+account_groups.json
+py-build/
+py-dist/
+release/
+.env
+
+# Local experiments and unrelated checkouts kept in this workspace.
+Havoc/
+Twitter-Cookie-Scrapper/
+tweeter copy*.py
+vize*.py
+x-login-extension/

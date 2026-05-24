@@ -1,0 +1,57 @@
+{
+  "name": "tweeter-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Baran Uyukus",
+  "description": "Desktop interface for Tweeter account and publishing workflows.",
+  "main": "desktop/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "python3 -m py_compile tweeter.py ui_api.py ui_live.py ui_config.py && node --check desktop/main.js && node --check desktop/preload.js && node --check desktop/renderer/app.js",
+    "build:py": "python -m PyInstaller --clean --onefile --distpath py-dist --workpath py-build --name ui_api ui_api.py && python -m PyInstaller --clean --onefile --distpath py-dist --workpath py-build --name ui_live ui_live.py",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.tweeter.studio",
+    "productName": "Tweeter Studio",
+    "asar": true,
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "py-dist",
+        "to": "bin",
+        "filter": [
+          "ui_api*",
+          "ui_live*"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1"
+  }
+}
