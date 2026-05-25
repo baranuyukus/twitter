@@ -4,6 +4,7 @@ const { spawn } = require("child_process");
 
 const rootDir = path.resolve(__dirname, "..");
 const pythonBin = process.env.TWEETER_PYTHON || "python3";
+const iconPath = path.join(__dirname, "assets", process.platform === "darwin" ? "icon.icns" : process.platform === "win32" ? "icon.ico" : "icon.png");
 let oauthProcess = null;
 let oauthLog = [];
 
@@ -36,6 +37,7 @@ function createWindow() {
     minWidth: 1120,
     minHeight: 720,
     title: "Tweeter Studio",
+    icon: iconPath,
     backgroundColor: "#f5f7fb",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -203,7 +205,12 @@ ipcMain.handle("dialog:images", async () => {
   return result.canceled ? [] : result.filePaths.slice(0, 4);
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.setIcon(path.join(__dirname, "assets", "icon.png"));
+  }
+  createWindow();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

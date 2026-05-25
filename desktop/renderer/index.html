@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div id="loadingScreen" class="loading-screen">
+      <div class="loading-card">
+        <div class="loading-mark">T</div>
+        <div>
+          <h1>Tweeter Studio</h1>
+          <p id="loadingText">Sistem hazırlanıyor...</p>
+        </div>
+        <div class="loading-track"><span></span></div>
+      </div>
+    </div>
+
     <div class="shell">
       <aside class="sidebar">
         <div class="brand">
@@ -17,12 +28,13 @@
           </div>
         </div>
         <nav class="nav">
-          <button class="nav-item active" data-view="compose">Compose</button>
-          <button class="nav-item" data-view="actions">Actions</button>
-          <button class="nav-item" data-view="check">Check</button>
-          <button class="nav-item" data-view="accounts">Accounts</button>
-          <button class="nav-item" data-view="settings">Settings</button>
-          <button class="nav-item" data-view="logs">Logs</button>
+          <button class="nav-item active" data-view="dashboard" data-i18n="nav.dashboard">Dashboard</button>
+          <button class="nav-item" data-view="compose" data-i18n="nav.campaigns">Campaigns</button>
+          <button class="nav-item" data-view="accounts" data-i18n="nav.accounts">Accounts</button>
+          <button class="nav-item" data-view="check" data-i18n="nav.health">Health Check</button>
+          <button class="nav-item" data-view="actions" data-i18n="nav.operations">Operations</button>
+          <button class="nav-item" data-view="settings" data-i18n="nav.settings">Settings</button>
+          <button class="nav-item" data-view="logs" data-i18n="nav.logs">Logs</button>
         </nav>
         <div class="sidebar-status">
           <span class="dot" id="bridgeDot"></span>
@@ -33,30 +45,101 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <h2 id="viewTitle">Compose</h2>
-            <p id="viewSubtitle">AI preview, review, then publish selected rows.</p>
+            <h2 id="viewTitle">Dashboard</h2>
+            <p id="viewSubtitle">Çoklu hesap büyüme kampanyaları için kontrol merkezi.</p>
           </div>
-          <button id="refreshBtn" class="icon-button" title="Refresh">Refresh</button>
+          <div class="topbar-actions">
+            <label class="top-language">
+              <span data-i18n="settings.language">Language</span>
+              <select id="topLanguageSelect" aria-label="Language">
+                <option value="tr">Türkçe</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+            <button id="refreshBtn" class="icon-button" title="Refresh" data-i18n="button.refresh">Refresh</button>
+          </div>
         </header>
 
-        <section id="composeView" class="view active">
+        <section id="dashboardView" class="view active">
+          <section class="dashboard-hero">
+            <div>
+              <p class="eyebrow" data-i18n="dashboard.eyebrow">SMM Control Center</p>
+              <h3 data-i18n="dashboard.title">Campaign performance and account health</h3>
+              <p class="muted" data-i18n="dashboard.subtitle">Track your account pool, recent operations and campaign outcomes from one place.</p>
+            </div>
+            <div class="hero-actions">
+              <button class="primary quick-action" data-view-target="compose" data-i18n="dashboard.newCampaign">New campaign</button>
+              <button class="secondary quick-action" data-view-target="check" data-i18n="dashboard.runHealth">Run health check</button>
+            </div>
+          </section>
+
+          <section class="metric-grid">
+            <div class="metric-card">
+              <span data-i18n="metric.accounts">Accounts</span>
+              <strong id="metricTotalAccounts">0</strong>
+              <p id="metricCredentialState" class="muted">0 ready</p>
+            </div>
+            <div class="metric-card">
+              <span data-i18n="metric.health">Healthy</span>
+              <strong id="metricHealthyAccounts">0</strong>
+              <p id="metricFailedAccounts" class="muted">0 failed</p>
+            </div>
+            <div class="metric-card">
+              <span data-i18n="metric.proxy">Proxy</span>
+              <strong id="metricProxyState">Off</strong>
+              <p id="metricProxyCount" class="muted">0 proxy</p>
+            </div>
+            <div class="metric-card">
+              <span data-i18n="metric.success">Last success</span>
+              <strong id="metricSuccessRate">-</strong>
+              <p id="metricLastCampaign" class="muted">No campaign yet</p>
+            </div>
+          </section>
+
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h3 data-i18n="dashboard.quickActions">Quick Actions</h3>
+                <span class="badge" data-i18n="dashboard.liveReady">Live ready</span>
+              </div>
+              <div class="quick-grid">
+                <button class="quick-tile" data-view-target="compose" data-i18n="quick.tweet">Tweet campaign</button>
+                <button class="quick-tile" data-action-target="reply" data-i18n="quick.reply">Reply campaign</button>
+                <button class="quick-tile" data-action-target="like" data-i18n="quick.like">Like boost</button>
+                <button class="quick-tile" data-action-target="retweet" data-i18n="quick.retweet">Retweet boost</button>
+                <button class="quick-tile" data-action-target="follow" data-i18n="quick.follow">Follow target</button>
+                <button class="quick-tile" data-view-target="check" data-i18n="quick.check">Check accounts</button>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h3 data-i18n="dashboard.recentCampaigns">Recent Campaigns</h3>
+                <span id="campaignCountBadge" class="badge">0</span>
+              </div>
+              <div id="dashboardCampaignList" class="campaign-list empty">No campaign history yet.</div>
+            </section>
+          </div>
+        </section>
+
+        <section id="composeView" class="view">
           <div class="layout">
             <section class="panel composer">
               <div class="panel-head">
-                <h3>Campaign Draft</h3>
+                <h3 data-i18n="campaign.draft">Campaign Draft</h3>
                 <span id="accountCountBadge" class="badge">0 accounts</span>
               </div>
 
               <div class="field-row">
                 <label class="field">
-                  <span>Mode</span>
+                  <span data-i18n="label.mode">Mode</span>
                   <select id="modeSelect">
                     <option value="rewrite">Rewrite one tweet per account</option>
                     <option value="instruction">Write from instruction</option>
                   </select>
                 </label>
                 <label class="field small">
-                  <span>Workers</span>
+                  <span data-i18n="label.workers">Workers</span>
                   <input id="workersInput" type="number" min="1" value="6" />
                 </label>
               </div>
@@ -68,29 +151,29 @@
 
               <div class="field-row">
                 <label class="field">
-                  <span>Reply to tweet ID</span>
+                  <span data-i18n="label.replyTo">Reply to tweet ID</span>
                   <input id="replyToInput" type="text" placeholder="Optional" />
                 </label>
                 <label class="field">
-                  <span>AI model</span>
+                  <span data-i18n="label.aiModel">AI model</span>
                   <input id="aiModelInput" type="text" />
                 </label>
               </div>
 
               <div class="button-row">
-                <button id="selectAllBtn" class="secondary">Select all</button>
-                <button id="clearSelectionBtn" class="secondary">Clear</button>
-                <button id="selectGroupBtn" class="secondary">Select group</button>
-                <button id="chooseImagesBtn" class="secondary">Images</button>
-                <button id="previewBtn" class="primary">Generate preview</button>
+                <button id="selectAllBtn" class="secondary" data-i18n="button.selectAll">Select all</button>
+                <button id="clearSelectionBtn" class="secondary" data-i18n="button.clear">Clear</button>
+                <button id="selectGroupBtn" class="secondary" data-i18n="button.selectGroup">Select group</button>
+                <button id="chooseImagesBtn" class="secondary" data-i18n="button.images">Images</button>
+                <button id="previewBtn" class="primary" data-i18n="button.preview">Generate preview</button>
               </div>
               <p id="imageSummary" class="muted"></p>
             </section>
 
             <section class="panel account-panel">
               <div class="panel-head">
-                <h3>Accounts</h3>
-                <button id="checkBtn" class="secondary compact">Check</button>
+                <h3 data-i18n="nav.accounts">Accounts</h3>
+                <button id="checkBtn" class="secondary compact" data-i18n="button.check">Check</button>
               </div>
               <div id="accountList" class="account-list"></div>
             </section>
@@ -102,12 +185,12 @@
                 <h3>Review Queue</h3>
                 <p class="muted">Rows with AI errors are never posted.</p>
               </div>
-              <button id="postBtn" class="danger" disabled>Publish selected</button>
+              <button id="postBtn" class="danger" disabled data-i18n="button.publish">Publish selected</button>
             </div>
             <div id="variantList" class="variant-list empty">Generate a preview to review account-specific text.</div>
             <div class="publish-console">
               <div class="panel-head tight-head">
-                <h3>Publish Output</h3>
+                <h3 data-i18n="campaign.publishOutput">Publish Output</h3>
                 <span id="publishSummary" class="badge">Idle</span>
               </div>
               <pre id="publishOutput" class="console-output compact-console">No publish run yet.</pre>
@@ -119,8 +202,8 @@
           <div class="layout">
             <section class="panel">
               <div class="panel-head">
-                <h3>Bulk Actions</h3>
-                <span class="badge">CLI feature surface</span>
+                <h3 data-i18n="operations.bulk">Bulk Operations</h3>
+                <span class="badge" data-i18n="operations.surface">Campaign tools</span>
               </div>
               <div class="field-row">
                 <label class="field">
@@ -176,7 +259,7 @@
 
               <div class="options-row">
                 <label><input id="actionAiRewriteInput" type="checkbox" /> AI rewrite text</label>
-                <label><input id="actionDryRunInput" type="checkbox" checked /> Dry run</label>
+                <label><input id="actionProxyInput" type="checkbox" /> <span data-i18n="operations.useProxy">Use proxy for this operation</span></label>
                 <label><input id="actionDeepInput" type="checkbox" /> Deep check</label>
                 <label><input id="actionSkipFollowInput" type="checkbox" checked /> Skip follow in boost</label>
               </div>
@@ -204,10 +287,17 @@
 
           <section class="panel">
             <div class="panel-head">
-              <h3>Action Console</h3>
-              <button id="clearActionOutputBtn" class="secondary compact">Clear</button>
+                <h3 data-i18n="operations.console">Operation Console</h3>
+                <button id="clearActionOutputBtn" class="secondary compact" data-i18n="button.clear">Clear</button>
             </div>
             <pre id="actionOutput" class="console-output">No action run yet.</pre>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h3 data-i18n="dashboard.recentCampaigns">Recent Campaigns</h3>
+              <span id="operationsCampaignBadge" class="badge">0</span>
+            </div>
+            <div id="operationsCampaignList" class="campaign-list empty">No campaign history yet.</div>
           </section>
         </section>
 
@@ -229,11 +319,18 @@
                 </label>
               </div>
               <div class="button-row">
-                <button id="checkSelectAllBtn" class="secondary">Select all</button>
-                <button id="checkClearBtn" class="secondary">Clear</button>
-                <button id="checkSelectFailedBtn" class="secondary">Select failed</button>
-                <button id="deleteFailedBtn" class="danger">Delete failed</button>
-                <button id="runCheckPageBtn" class="primary">Run check</button>
+                <button id="checkSelectAllBtn" class="secondary" data-i18n="button.selectAll">Select all</button>
+                <button id="checkClearBtn" class="secondary" data-i18n="button.clear">Clear</button>
+                <button id="checkSelectFailedBtn" class="secondary" data-i18n="button.selectFailed">Select failed</button>
+                <button id="deleteFailedBtn" class="danger" data-i18n="button.deleteFailed">Delete failed</button>
+                <button id="runCheckPageBtn" class="primary" data-i18n="button.runCheck">Run check</button>
+              </div>
+              <div class="filter-row">
+                <button class="filter-chip active" data-check-filter="all" data-i18n="filter.all">All</button>
+                <button class="filter-chip" data-check-filter="active" data-i18n="filter.active">Active</button>
+                <button class="filter-chip" data-check-filter="failed" data-i18n="filter.failed">Failed</button>
+                <button class="filter-chip" data-check-filter="auth" data-i18n="filter.auth">Auth errors</button>
+                <button class="filter-chip" data-check-filter="timeout" data-i18n="filter.timeout">Timeout</button>
               </div>
               <div id="checkAccountList" class="check-list"></div>
             </section>
@@ -249,6 +346,28 @@
         </section>
 
         <section id="accountsView" class="view">
+          <section class="metric-grid account-summary-grid">
+            <div class="metric-card">
+              <span data-i18n="metric.accounts">Accounts</span>
+              <strong id="accountMetricTotal">0</strong>
+              <p class="muted" data-i18n="accounts.totalHint">Total records</p>
+            </div>
+            <div class="metric-card">
+              <span data-i18n="accounts.ready">Ready</span>
+              <strong id="accountMetricReady">0</strong>
+              <p class="muted" data-i18n="accounts.readyHint">Credentials loaded</p>
+            </div>
+            <div class="metric-card">
+              <span data-i18n="accounts.missing">Missing</span>
+              <strong id="accountMetricMissing">0</strong>
+              <p class="muted" data-i18n="accounts.missingHint">Need credentials</p>
+            </div>
+            <div class="metric-card">
+              <span data-i18n="metric.health">Healthy</span>
+              <strong id="accountMetricHealthy">0</strong>
+              <p id="accountMetricFailed" class="muted">0 failed</p>
+            </div>
+          </section>
           <div class="accounts-layout">
             <section class="panel">
               <div class="panel-head">
@@ -317,6 +436,8 @@
                 </label>
               </div>
               <div class="button-row account-tools">
+                <button id="selectAllAccountsBtn" class="secondary">Select all</button>
+                <button id="clearAccountSelectionBtn" class="secondary">Clear</button>
                 <button id="createGroupBtn" class="secondary">Create group</button>
                 <button id="assignGroupBtn" class="secondary">Assign selected</button>
                 <button id="deleteSelectedAccountsBtn" class="danger">Delete selected</button>
@@ -330,6 +451,13 @@
           <section class="panel settings-grid">
             <div>
               <h3>AI Provider</h3>
+              <label class="field">
+                <span data-i18n="settings.language">Language</span>
+                <select id="uiLanguageSelect">
+                  <option value="tr">Türkçe</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
               <label class="field">
                 <span>Provider</span>
                 <select id="aiProviderSelect">
@@ -384,11 +512,14 @@
             </div>
             <div>
               <h3>Proxy List</h3>
+              <div class="options-row proxy-toggle-row">
+                <label><input id="proxyEnabledInput" type="checkbox" /> Use proxy for Twitter actions</label>
+              </div>
               <label class="field">
                 <span>One proxy per line</span>
                 <textarea id="proxyInput" rows="8" placeholder="http://user:pass@host:port"></textarea>
               </label>
-              <button id="saveProxyBtn" class="primary">Save proxies</button>
+              <button id="saveProxyBtn" class="primary">Save proxy settings</button>
             </div>
           </section>
           <section class="panel">

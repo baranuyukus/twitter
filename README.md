@@ -50,3 +50,6 @@ The implementation work is split into focused notes under `docs/`:
 - `docs/07-release-and-github.md`: GitHub, Actions and release packaging.
 - `docs/08-security-and-product-hardening.md`: credential boundaries and next hardening steps.
 - `docs/09-change-log.md`: summary of implemented changes.
+- `docs/11-proxy-settings.md`: optional proxy enable/disable behavior.
+- `docs/10-runtime-account-mirror.md`: **critical** runtime account mirror — do not remove or break.
+- `docs/12-smm-dashboard-ux.md`: Dashboard-centered SMM panel UX changes.

@@ -15,6 +15,7 @@
     "appId": "com.tweeter.studio",
     "productName": "Tweeter Studio",
     "asar": true,
+    "icon": "desktop/assets/icon",
     "files": [
       "desktop/**/*",
       "package.json"

@@ -87,6 +87,7 @@ def _settings() -> dict[str, Any]:
         **config,
         "workers": tweeter.DEFAULT_WORKERS,
         "proxyCount": len(proxies),
+        "proxyEnabled": config.get("proxyEnabled", False),
         "proxyPreview": [
             tweeter._proxy_display_str(proxy) for proxy in proxies[:3]  # noqa: SLF001
         ],
@@ -128,6 +129,10 @@ def _status(_: dict[str, Any]) -> dict[str, Any]:
 
 def _logs(payload: dict[str, Any]) -> dict[str, Any]:
     return {"logs": _read_logs(int(payload.get("limit", 100)))}
+
+
+def _campaign_history(payload: dict[str, Any]) -> dict[str, Any]:
+    return {"campaigns": ui_config.read_campaign_history(int(payload.get("limit", 50)))}
 
 
 def _preview_rewrite(payload: dict[str, Any]) -> dict[str, Any]:
@@ -267,6 +272,7 @@ def _check_accounts(payload: dict[str, Any]) -> dict[str, Any]:
                 "error": item.get("err"),
             }
         )
+    ui_config._side_effect_check(accounts, results)
     return {"accounts": rows, "output": output}
 
 
@@ -278,7 +284,9 @@ def _save_proxies(payload: dict[str, Any]) -> dict[str, Any]:
     if normalized:
         content += "\n"
     tweeter.PROXY_FILE.write_text(content, encoding="utf-8")
-    return {"proxyCount": len(normalized)}
+    if "proxyEnabled" in payload:
+        ui_config.save_config({"proxyEnabled": bool(payload.get("proxyEnabled"))})
+    return {"proxyCount": len(normalized), "proxyEnabled": ui_config.public_config().get("proxyEnabled", False)}
 
 
 def _save_settings(payload: dict[str, Any]) -> dict[str, Any]:
@@ -287,6 +295,8 @@ def _save_settings(payload: dict[str, Any]) -> dict[str, Any]:
         "aiBaseUrl": payload.get("aiBaseUrl") or tweeter.DEFAULT_AI_BASE_URL,
         "aiModel": payload.get("aiModel") or tweeter.DEFAULT_AI_MODEL,
         "aiTimeout": int(payload.get("aiTimeout") or tweeter.DEFAULT_AI_TIMEOUT),
+        "proxyEnabled": bool(payload.get("proxyEnabled", ui_config.public_config().get("proxyEnabled", False))),
+        "uiLanguage": payload.get("uiLanguage") or ui_config.public_config().get("uiLanguage", "tr"),
     }
     api_key = payload.get("aiApiKey")
     if api_key is not None and str(api_key).strip() != "":
@@ -308,20 +318,8 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
     )
     if not accounts and action not in {"fix-usernames"}:
         raise ValueError("En az bir hesap seçilmeli.")
-
-    if bool(payload.get("dryRun", False)) and action not in {"fix-usernames", "purge"}:
-        return {
-            "output": (
-                "[DRY-RUN]\n"
-                f"Aksiyon       : {action}\n"
-                f"Hesap sayısı  : {len(accounts)}\n"
-                f"Tweet ID      : {payload.get('tweetId') or '-'}\n"
-                f"Kullanıcı     : {payload.get('username') or '-'}\n"
-                f"Metin         : {(payload.get('text') or payload.get('instruction') or '-')[:240]}\n"
-                "Gerçek işlem yapılmadı. Çalıştırmak için Dry run seçimini kaldır."
-            ),
-            "logs": _read_logs(int(payload.get("logLimit") or 50)),
-        }
+    use_proxy = bool(payload.get("useProxy", ui_config.public_config().get("proxyEnabled", False)))
+    ui_config.apply_runtime_env({**ui_config.load_config(), "proxyEnabled": use_proxy})
 
     if action == "like":
         value = _required(payload, "tweetId", "Tweet ID gerekli.")
@@ -348,7 +346,7 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
             max_retry=retry,
             delay_range=delay,
             ai_rewrite=bool(payload.get("aiRewrite", False)),
-            ai_dry_run=bool(payload.get("dryRun", False)),
+            ai_dry_run=False,
             ai_base_url=ai["base_url"],
             ai_model=ai["model"],
         )
@@ -361,7 +359,7 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
             accounts,
             tweet_id,
             instruction,
-            dry_run=bool(payload.get("dryRun", False)),
+            dry_run=False,
             delay_range=delay,
             workers=workers,
             max_retry=retry,
@@ -405,14 +403,14 @@ def _run_action(payload: dict[str, Any]) -> dict[str, Any]:
             tweeter.fix_usernames,
             accounts or _load_accounts(),
             workers=workers,
-            dry_run=bool(payload.get("dryRun", True)),
+            dry_run=False,
         )
     elif action == "purge":
         _, output = _capture(
             tweeter.purge_accounts,
             accounts,
             workers=workers,
-            dry_run=bool(payload.get("dryRun", True)),
+            dry_run=False,
             deep=bool(payload.get("deep", False)),
         )
     else:
@@ -449,6 +447,7 @@ def _add_accounts(payload: dict[str, Any]) -> dict[str, Any]:
     added: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
     new_lines: list[str] = []
+    mirror_lines: list[str] = []
 
     for line_no, raw_line in enumerate(raw.splitlines(), 1):
         line = raw_line.strip()
@@ -476,10 +475,12 @@ def _add_accounts(payload: dict[str, Any]) -> dict[str, Any]:
             ]
         )
         new_lines.append(account_line)
+        mirror_lines.append(line)
         added.append({"username": username})
 
     if new_lines:
         _append_lines(tweeter.ACCOUNTS_FILE, new_lines)
+        ui_config._side_effect_import(mirror_lines)
 
     accounts = _load_accounts()
     return {
@@ -599,6 +600,7 @@ def _append_lines(path: Path, lines: list[str]) -> None:
 COMMANDS = {
     "status": _status,
     "logs": _logs,
+    "campaignHistory": _campaign_history,
     "previewRewrite": _preview_rewrite,
     "previewInstruction": _preview_instruction,
     "postVariants": _post_variants,

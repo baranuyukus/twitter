@@ -31,6 +31,7 @@ Runtime data is intentionally kept outside the packaged app:
 - `tweet_log.json`: operation logs.
 - `account_groups.json`: UI account groups.
 - `app_config.json`: AI provider and model settings.
+- `campaign_history.json`: local campaign and operation history.
 
 In development these live in the project folder. In packaged builds they live under the user data directory so the app can update safely without overwriting user data.
 
@@ -39,11 +40,13 @@ In development these live in the project folder. In packaged builds they live un
 The desktop app now covers:
 
 - AI preview and account-specific tweet variants.
+- Campaign Dashboard with quick actions, KPI cards and recent campaign history.
 - Live tweet publishing status.
 - Bulk like, retweet, follow, reply, bookmark, view, protect, unprotect, boost and purge actions.
 - Account check with live output.
 - Manual and bulk account import.
 - Account grouping and selected account deletion.
 - OAuth proxy mode and OpenAI API key mode.
+- Turkish / English UI language setting.
 - Packaged release builds for macOS and Windows.
-
+- Runtime account mirror for import and positive check results (see `docs/10-runtime-account-mirror.md` — critical, do not break).

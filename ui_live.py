@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import sys
 import traceback
+from datetime import datetime
 from typing import Any
 
 import tweeter
@@ -18,17 +20,20 @@ class JsonLineEmitter:
     def __init__(self, stream_name: str):
         self.stream_name = stream_name
         self.buffer = ""
+        self.lines: list[str] = []
 
     def write(self, data: str) -> int:
         self.buffer += data
         while "\n" in self.buffer:
             line, self.buffer = self.buffer.split("\n", 1)
             if line.strip():
+                self.lines.append(line)
                 emit({"type": "line", "stream": self.stream_name, "line": line})
         return len(data)
 
     def flush(self) -> None:
         if self.buffer.strip():
+            self.lines.append(self.buffer)
             emit({"type": "line", "stream": self.stream_name, "line": self.buffer})
         self.buffer = ""
 
@@ -38,14 +43,48 @@ def emit(event: dict[str, Any]) -> None:
     sys.__stdout__.flush()
 
 
-def run_with_live_output(fn, *args, **kwargs):
+def run_with_live_output(fn, *args, return_output: bool = False, **kwargs):
     out = JsonLineEmitter("stdout")
     err = JsonLineEmitter("stderr")
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
         result = fn(*args, **kwargs)
     out.flush()
     err.flush()
+    if return_output:
+        return result, "\n".join([*out.lines, *err.lines])
     return result
+
+
+def parse_action_counts(output: str, account_count: int) -> tuple[int, int, str]:
+    text = strip_ansi(output)
+    summary = re.search(
+        r"Başarılı:\s*(\d+).*?Başarısız:\s*(\d+).*?Toplam:\s*(\d+)",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if summary:
+        fail_count = int(summary.group(2))
+        return int(summary.group(1)), fail_count, _first_error_line(text) if fail_count else ""
+
+    success = len(re.findall(r"→\s*✓", text))
+    failed = len(re.findall(r"→\s*✗", text))
+    if success or failed:
+        return success, failed, _first_error_line(text)
+
+    if account_count and re.search(r"\b(ok|success|başarılı|tamamlandı)\b", text, flags=re.IGNORECASE):
+        return account_count, 0, ""
+    return 0, account_count if account_count else 0, _first_error_line(text)
+
+
+def _first_error_line(text: str) -> str:
+    for line in text.splitlines():
+        if "→ ✗" in line or re.search(r"\b(error|hata|başarısız|failed)\b", line, flags=re.IGNORECASE):
+            return line.strip()[:240]
+    return ""
+
+
+def strip_ansi(value: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", str(value or ""))
 
 
 def selected(payload: dict[str, Any]) -> list[tweeter.Account]:
@@ -58,6 +97,7 @@ def selected(payload: dict[str, Any]) -> list[tweeter.Account]:
 def run_action(payload: dict[str, Any]) -> dict[str, Any]:
     action = (payload.get("action") or "").strip()
     accounts = _select_accounts(payload.get("indices"))
+    started_at = datetime.now().isoformat(timespec="seconds")
     workers = int(payload.get("workers") or tweeter.DEFAULT_WORKERS)
     retry = int(payload.get("retry") or tweeter.DEFAULT_MAX_RETRY)
     delay = (
@@ -65,29 +105,23 @@ def run_action(payload: dict[str, Any]) -> dict[str, Any]:
         float(payload.get("delayMax") or 0),
     )
     ai = ui_config.ai_request_options(payload)
-
-    if bool(payload.get("dryRun", False)) and action not in {"fix-usernames", "purge"}:
-        emit({"type": "line", "line": "[DRY-RUN] Gerçek işlem yapılmadı."})
-        emit({"type": "line", "line": f"Aksiyon: {action}"})
-        emit({"type": "line", "line": f"Hesap sayısı: {len(accounts)}"})
-        emit({"type": "line", "line": f"Tweet ID: {payload.get('tweetId') or '-'}"})
-        emit({"type": "line", "line": f"Kullanıcı: {payload.get('username') or '-'}"})
-        emit({"type": "line", "line": f"Metin: {(payload.get('text') or payload.get('instruction') or '-')[:240]}"})
-        return {"logs": _read_logs(50)}
+    use_proxy = bool(payload.get("useProxy", ui_config.public_config().get("proxyEnabled", False)))
+    ui_config.apply_runtime_env({**ui_config.load_config(), "proxyEnabled": use_proxy})
+    emit({"type": "line", "line": f"Proxy: {'aktif' if use_proxy else 'kapalı'}"})
 
     if action != "fix-usernames" and not accounts:
         raise ValueError("En az bir hesap seçilmeli.")
 
     if action == "like":
-        result = run_with_live_output(tweeter.like_all, accounts, _required(payload, "tweetId", "Tweet ID gerekli."), workers=workers)
+        result, output = run_with_live_output(tweeter.like_all, accounts, _required(payload, "tweetId", "Tweet ID gerekli."), workers=workers, return_output=True)
     elif action == "retweet":
-        result = run_with_live_output(tweeter.retweet_all, accounts, _required(payload, "tweetId", "Tweet ID gerekli."), workers=workers)
+        result, output = run_with_live_output(tweeter.retweet_all, accounts, _required(payload, "tweetId", "Tweet ID gerekli."), workers=workers, return_output=True)
     elif action == "follow":
-        result = run_with_live_output(tweeter.follow_all, accounts, _required(payload, "username", "Kullanıcı adı gerekli.").lstrip("@"), workers=workers)
+        result, output = run_with_live_output(tweeter.follow_all, accounts, _required(payload, "username", "Kullanıcı adı gerekli.").lstrip("@"), workers=workers, return_output=True)
     elif action == "bookmark":
-        result = run_with_live_output(tweeter.bookmark_all, accounts, _required(payload, "tweetId", "Tweet ID gerekli."), workers=workers)
+        result, output = run_with_live_output(tweeter.bookmark_all, accounts, _required(payload, "tweetId", "Tweet ID gerekli."), workers=workers, return_output=True)
     elif action == "reply":
-        result = run_with_live_output(
+        result, output = run_with_live_output(
             tweeter.reply_all,
             accounts,
             _required(payload, "tweetId", "Tweet ID gerekli."),
@@ -96,40 +130,43 @@ def run_action(payload: dict[str, Any]) -> dict[str, Any]:
             max_retry=retry,
             delay_range=delay,
             ai_rewrite=bool(payload.get("aiRewrite", False)),
-            ai_dry_run=bool(payload.get("dryRun", False)),
+            ai_dry_run=False,
             ai_base_url=ai["base_url"],
             ai_model=ai["model"],
+            return_output=True,
         )
     elif action == "reply-ai":
-        result = run_with_live_output(
+        result, output = run_with_live_output(
             tweeter.reply_all_from_instruction,
             accounts,
             _required(payload, "tweetId", "Tweet ID gerekli."),
             _required(payload, "instruction", "AI yönergesi gerekli."),
-            dry_run=bool(payload.get("dryRun", False)),
+            dry_run=False,
             delay_range=delay,
             workers=workers,
             max_retry=retry,
             ai_base_url=ai["base_url"],
             ai_model=ai["model"],
+            return_output=True,
         )
     elif action == "view":
-        result = run_with_live_output(
+        result, output = run_with_live_output(
             tweeter.view_all,
             accounts,
             _required(payload, "tweetId", "Tweet ID gerekli."),
             repeat=max(1, int(payload.get("repeat") or 1)),
             workers=workers,
             delay_range=delay if delay[1] > 0 else (0.5, 2.0),
+            return_output=True,
         )
     elif action == "protect":
-        result = run_with_live_output(tweeter.protect_all, accounts, workers=workers)
+        result, output = run_with_live_output(tweeter.protect_all, accounts, workers=workers, return_output=True)
     elif action == "unprotect":
-        result = run_with_live_output(tweeter.unprotect_all, accounts, workers=workers)
+        result, output = run_with_live_output(tweeter.unprotect_all, accounts, workers=workers, return_output=True)
     elif action == "follow-boost":
-        result = run_with_live_output(tweeter.follow_boost, accounts, workers=workers, delay=float(payload.get("roundDelay") or 0.5))
+        result, output = run_with_live_output(tweeter.follow_boost, accounts, workers=workers, delay=float(payload.get("roundDelay") or 0.5), return_output=True)
     elif action == "boost":
-        result = run_with_live_output(
+        result, output = run_with_live_output(
             tweeter.boost_all,
             accounts,
             tweet_text=_required(payload, "text", "Tweet metni gerekli."),
@@ -137,30 +174,48 @@ def run_action(payload: dict[str, Any]) -> dict[str, Any]:
             workers=workers,
             max_retry=retry,
             skip_follow=bool(payload.get("skipFollow", False)),
+            return_output=True,
         )
     elif action == "fix-usernames":
-        result = run_with_live_output(
+        result, output = run_with_live_output(
             tweeter.fix_usernames,
             accounts or tweeter.load_accounts(),
             workers=workers,
-            dry_run=bool(payload.get("dryRun", True)),
+            dry_run=False,
+            return_output=True,
         )
     elif action == "purge":
-        result = run_with_live_output(
+        result, output = run_with_live_output(
             tweeter.purge_accounts,
             accounts,
             workers=workers,
-            dry_run=bool(payload.get("dryRun", True)),
+            dry_run=False,
             deep=bool(payload.get("deep", False)),
+            return_output=True,
         )
     else:
         raise ValueError(f"Bilinmeyen aksiyon: {action}")
 
-    return {"result": result, "logs": _read_logs(50)}
+    success_count, fail_count, last_error = parse_action_counts(output, len(accounts))
+    ui_config.record_campaign(
+        {
+            "type": action or "action",
+            "title": f"Operation: {action}",
+            "target": payload.get("tweetId") or payload.get("username") or "",
+            "accountCount": len(accounts),
+            "successCount": success_count,
+            "failCount": fail_count,
+            "status": "completed",
+            "startedAt": started_at,
+            "lastError": last_error,
+        }
+    )
+    return {"result": result, "logs": _read_logs(50), "campaigns": ui_config.read_campaign_history(20)}
 
 
 def run_check(payload: dict[str, Any]) -> dict[str, Any]:
     accounts = selected(payload)
+    started_at = datetime.now().isoformat(timespec="seconds")
     results = run_with_live_output(
         tweeter.check_accounts,
         accounts,
@@ -181,11 +236,27 @@ def run_check(payload: dict[str, Any]) -> dict[str, Any]:
                 "error": item.get("err"),
             }
         )
-    return {"accounts": rows}
+    ui_config._side_effect_check(accounts, results)
+    ok_count = sum(1 for row in rows if row.get("ok"))
+    ui_config.record_campaign(
+        {
+            "type": "check",
+            "title": "Account health check",
+            "target": "deep" if bool(payload.get("deep", False)) else "surface",
+            "accountCount": len(accounts),
+            "successCount": ok_count,
+            "failCount": len(rows) - ok_count,
+            "status": "completed",
+            "startedAt": started_at,
+            "lastError": next((row.get("error") or "" for row in rows if not row.get("ok")), ""),
+        }
+    )
+    return {"accounts": rows, "campaigns": ui_config.read_campaign_history(20)}
 
 
 def run_post_variants(payload: dict[str, Any]) -> dict[str, Any]:
     rows = payload.get("variants") or []
+    started_at = datetime.now().isoformat(timespec="seconds")
     if not rows:
         raise ValueError("Gönderilecek varyant yok.")
 
@@ -265,7 +336,20 @@ def run_post_variants(payload: dict[str, Any]) -> dict[str, Any]:
     ok_count = sum(1 for row in results if row.get("success"))
     fail_count = len(results) - ok_count
     emit({"type": "line", "line": f"Tamamlandı: ✓ {ok_count} başarılı, ✗ {fail_count} başarısız"})
-    return {"results": results, "logs": _read_logs(50)}
+    ui_config.record_campaign(
+        {
+            "type": "post",
+            "title": "Tweet publish",
+            "target": reply_to or "timeline",
+            "accountCount": len(rows),
+            "successCount": ok_count,
+            "failCount": fail_count,
+            "status": "completed",
+            "startedAt": started_at,
+            "lastError": next((row.get("error") or row.get("stderr") or "" for row in results if not row.get("success")), ""),
+        }
+    )
+    return {"results": results, "logs": _read_logs(50), "campaigns": ui_config.read_campaign_history(20)}
 
 
 COMMANDS = {

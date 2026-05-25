@@ -140,6 +140,12 @@ def load_proxies() -> list[str]:
     return proxies
 
 
+def proxy_enabled() -> bool:
+    """Proxy kullanımı runtime ayarı ile açılıp kapatılır."""
+    raw = os.environ.get("TWEETER_PROXY_ENABLED", "1").strip().lower()
+    return raw in {"1", "true", "yes", "on", "enabled", "aktif"}
+
+
 def get_proxy() -> str | None:
     """
     Thread-safe round-robin proxy seçici.
@@ -147,6 +153,8 @@ def get_proxy() -> str | None:
     DataImpulse tek-satır kullanımında gateway zaten otomatik rotate eder.
     """
     global _proxy_counter
+    if not proxy_enabled():
+        return None
     if not _PROXY_POOL:
         return None
     with _proxy_lock:
@@ -979,7 +987,7 @@ def print_banner():
 ╚══════════════════════════════════════════════════════════════╝
 {Colors.RESET}"""
     print(banner)
-    if _PROXY_POOL:
+    if _PROXY_POOL and proxy_enabled():
         if len(_PROXY_POOL) == 1:
             host = _proxy_display_str(_PROXY_POOL[0])
             print(f"  {Colors.GREEN}🔒 Rotating Proxy aktif:{Colors.RESET} {Colors.GRAY}{host}{Colors.RESET} "
@@ -993,6 +1001,8 @@ def print_banner():
             if len(_PROXY_POOL) > 3:
                 print(f"  {Colors.GRAY}  ... +{len(_PROXY_POOL) - 3} daha{Colors.RESET}")
             print()
+    elif _PROXY_POOL:
+        print(f"  {Colors.GRAY}Proxy havuzu kayıtlı ama kapalı ({len(_PROXY_POOL)} proxy){Colors.RESET}\n")
     else:
         print(f"  {Colors.YELLOW}⚠  Proxy yok — proxy.txt'e DataImpulse veya başka proxy ekle{Colors.RESET}\n")
 

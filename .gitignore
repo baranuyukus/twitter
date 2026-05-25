@@ -10,6 +10,7 @@ batch-*.txt
 proxy.txt
 app_config.json
 account_groups.json
+campaign_history.json
 py-build/
 py-dist/
 release/
