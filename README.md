@@ -27,12 +27,14 @@ npm run check
 
 ## Release Builds
 
-GitHub Actions builds macOS and Windows packages automatically when you push a tag like:
+GitHub Actions builds macOS and Windows packages when you push a **version tag** (pushing `main` alone is not enough):
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
+
+Or run the **Release** workflow manually from GitHub Actions and enter the tag name.
 
 The release packages ship the Python bridge as PyInstaller binaries and package the Electron UI with ASAR.
 

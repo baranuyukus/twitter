@@ -30,8 +30,22 @@ The release workflow is stored at:
 
 It runs for:
 
-- version tags like `v0.1.0`
-- manual workflow dispatch
+- **Git tag push only** — pushing to `main` alone does **not** create a release.
+- version tags like `v0.1.0` or `v0.1.1`
+- manual workflow dispatch (Actions → Release → Run workflow, enter tag name)
+
+### Create a release after code changes
+
+```bash
+# 1) Commit and push main (already done)
+git push origin main
+
+# 2) Create and push a new tag (required to trigger the workflow)
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+Each release needs a **new** tag. Re-pushing an existing tag does not rebuild unless the tag is deleted first.
 
 ## Build Matrix
 
